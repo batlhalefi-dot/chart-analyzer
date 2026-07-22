@@ -1,6 +1,6 @@
 async function analyzeChartWithAI(imageBase64, timeframe) {
 
-const BACKEND_URL = "https://chart-analyzer-r2jr.onrender.com";
+const BACKEND_URL = "https://chart-analyzer-r2jr.onrender.com/analyze";
 
 try {
 
