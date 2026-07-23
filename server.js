@@ -1,20 +1,20 @@
 const express = require("express");
 const cors = require("cors");
-const { GoogleGenerativeAI } = require("@google/generative-ai");
+const axios = require("axios");
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
 
 app.post("/analyze", async (req, res) => {
   try {
     const { image, timeframe } = req.body;
 
-    const model = genAI.getGenerativeModel({
-      model: "gemini-1.0-pro-vision-latest"
-    });
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: "Gemini API key not configured." });
+    }
 
     const base64Image = image.split(",")[1];
 
@@ -50,25 +50,39 @@ Do not include markdown.
 Timeframe: ${timeframe}
 `;
 
-    const result = await model.generateContent([
-      prompt,
+    const response = await axios.post(
+      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
       {
-        inlineData: {
-          mimeType: "image/png",
-          data: base64Image
-        }
+        contents: [
+          {
+            role: "user",
+            parts: [
+              { text: prompt },
+              {
+                inlineData: {
+                  mimeType: "image/png",
+                  data: base64Image,
+                },
+              },
+            ],
+          },
+        ],
       }
-    ]);
+    );
 
-    const response = await result.response;
-    const textOutput = response.text();
+    const textOutput =
+      response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!textOutput) {
+      return res.status(500).json({ error: "No response from Gemini." });
+    }
 
     const cleaned = textOutput.replace(/```json|```/g, "").trim();
 
     res.json(JSON.parse(cleaned));
 
   } catch (error) {
-    console.error(error);
+    console.error(error.response?.data || error.message);
     res.status(500).json({ error: "Gemini analysis failed" });
   }
 });
