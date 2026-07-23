@@ -1,20 +1,18 @@
 const express = require("express");
 const cors = require("cors");
-const axios = require("axios");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
 
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 app.post("/analyze", async (req, res) => {
   try {
     const { image, timeframe } = req.body;
 
-    if (!GEMINI_API_KEY) {
-      return res.status(500).json({ error: "Gemini API key not configured." });
-    }
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     const base64Image = image.split(",")[1];
 
@@ -50,37 +48,25 @@ Do not include markdown.
 Timeframe: ${timeframe}
 `;
 
-    const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+    const result = await model.generateContent([
+      prompt,
       {
-        contents: [
-          {
-            parts: [
-              { text: prompt },
-              {
-                inlineData: {
-                  mimeType: "image/png",
-                  data: base64Image,
-                },
-              },
-            ],
-          },
-        ],
+        inlineData: {
+          mimeType: "image/png",
+          data: base64Image
+        }
       }
-    );
+    ]);
 
-    const textOutput =
-      response.data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-    if (!textOutput) {
-      return res.status(500).json({ error: "No response from Gemini." });
-    }
+    const response = await result.response;
+    const textOutput = response.text();
 
     const cleaned = textOutput.replace(/```json|```/g, "").trim();
 
     res.json(JSON.parse(cleaned));
+
   } catch (error) {
-    console.error(error.response?.data || error.message);
+    console.error(error);
     res.status(500).json({ error: "Gemini analysis failed" });
   }
 });
