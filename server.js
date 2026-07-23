@@ -12,7 +12,9 @@ app.post("/analyze", async (req, res) => {
   try {
     const { image, timeframe } = req.body;
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({
+      model: "gemini-1.0-pro-vision-latest"
+    });
 
     const base64Image = image.split(",")[1];
 
