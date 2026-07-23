@@ -12,6 +12,10 @@ app.post("/analyze", async (req, res) => {
   try {
     const { image, timeframe } = req.body;
 
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: "Gemini API key not configured." });
+    }
+
     const base64Image = image.split(",")[1];
 
     const prompt = `
@@ -19,7 +23,7 @@ You are a professional institutional price action analyst.
 
 Analyze the uploaded financial chart screenshot.
 
-Identify high‑quality Supply and Demand zones only.
+Identify high-quality Supply and Demand zones only.
 
 Return STRICT JSON in this format:
 
@@ -47,7 +51,7 @@ Timeframe: ${timeframe}
 `;
 
     const response = await axios.post(
-      `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`,
       {
         contents: [
           {
@@ -67,6 +71,10 @@ Timeframe: ${timeframe}
 
     const textOutput =
       response.data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!textOutput) {
+      return res.status(500).json({ error: "No response from Gemini." });
+    }
 
     const cleaned = textOutput.replace(/```json|```/g, "").trim();
 
